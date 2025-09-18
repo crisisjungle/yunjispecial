@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>一体化机柜产品功能动态面板</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .header p {
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+        
+        .controls {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .control-group label {
+            font-weight: bold;
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        
+        .control-group select, .control-group button {
+            padding: 10px 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .control-group select:hover, .control-group button:hover {
+            border-color: #3498db;
+            box-shadow: 0 2px 8px rgba(52, 152, 219, 0.2);
+        }
+        
+        .function-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            min-height: 600px;
+        }
+        
+        .treemap-container {
+            width: 100%;
+            min-height: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 20px;
+        }
+
+        .height-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: flex-start;
+            justify-content: flex-start;
+            width: 100%;
+        }
+        
+        .business-module {
+            border: 3px solid #fff;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            height: fit-content;
+            max-height: 80vh;
+            overflow-y: auto;
+            flex: 1;
+            min-width: 280px;
+            max-width: 400px;
+        }
+
+        /* 基础公共服务模块特殊宽度 */
+        .business-module.wide-module {
+            min-width: 420px;
+            max-width: 600px;
+            flex: 2;
+        }
+
+        /* 最后一行的特殊布局 */
+        .height-group.last-row {
+            justify-content: space-between;
+        }
+
+        .height-group.last-row.single-item {
+            justify-content: flex-start;
+        }
+
+        .height-group.last-row.few-items .business-module {
+            flex-grow: 1;
+        }
+        
+        .business-module::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .business-module::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+        
+        .business-module::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+        
+        .business-module::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .business-module:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .business-module.collapsed {
+            min-height: 60px;
+        }
+        
+        .module-header {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            font-weight: bold;
+            font-size: 16px;
+            color: #2c3e50;
+            text-align: center;
+            position: relative;
+            line-height: 1.4;
+        }
+        
+        .module-count {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #e74c3c;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .function-modules {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 12px;
+            flex: 1;
+            align-items: start;
+        }
+        
+        .function-module {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 6px;
+            padding: 10px 12px;
+            border-left: 4px solid transparent;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .function-module:hover {
+            background: rgba(255, 255, 255, 0.95);
+            transform: translateX(2px);
+        }
+        
+        .function-module-header {
+            font-weight: bold;
+            font-size: 14px;
+            color: #34495e;
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+        
+        .function-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        /* 基础公共服务模块的功能项使用三列布局 */
+        .wide-module .function-items {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        
+        .function-item {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 11px;
+            border: 1px solid #ecf0f1;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            line-height: 1.3;
+            text-align: center;
+            min-height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .function-item:hover {
+            transform: scale(1.05);
+            z-index: 100;
+            position: relative;
+            white-space: normal;
+            overflow: visible;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 关闭状态的功能项样式 */
+        .function-item.disabled {
+            opacity: 0.4;
+            background-color: #95a5a6 !important;
+            color: #7f8c8d !important;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .function-item.disabled::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 10%;
+            right: 10%;
+            height: 2px;
+            background-color: #e74c3c;
+            transform: translateY(-50%);
+            z-index: 1;
+        }
+
+        .function-item.disabled:hover {
+            transform: scale(1.02);
+            opacity: 0.6;
+        }
+        
+        /* 功能类型颜色 */
+        .type-动环面客 { 
+            background: linear-gradient(135deg, #3498db, #2980b9); 
+        }
+        .type-售后维护 { 
+            background: linear-gradient(135deg, #e74c3c, #c0392b); 
+        }
+        .type-用户配置 { 
+            background: linear-gradient(135deg, #f39c12, #e67e22); 
+        }
+        .type-工程施工 { 
+            background: linear-gradient(135deg, #27ae60, #229954); 
+        }
+        
+        /* KANO类型边框颜色 */
+        .kano-基本型需求 { border-left-color: #c0392b !important; }
+        .kano-期望型需求 { border-left-color: #27ae60 !important; }
+        .kano-魅力型需求 { border-left-color: #3498db !important; }
+        .kano-无差异需求 { border-left-color: #95a5a6 !important; }
+        .kano-反向型需求 { border-left-color: #8e44ad !important; }
+        
+        .stats-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
+            border: 2px solid #ecf0f1;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        
+        .legend {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        
+        
+        @media (max-width: 1600px) {
+            .height-group {
+                justify-content: center;
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            .function-modules {
+                grid-template-columns: 1fr;
+            }
+            
+            .height-group {
+                justify-content: flex-start;
+            }
+            
+            .business-module {
+                min-width: 260px;
+                max-width: 380px;
+            }
+            
+            .business-module.wide-module {
+                min-width: 360px;
+                max-width: 500px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .treemap-container {
+                gap: 15px;
+                padding: 15px;
+            }
+            
+            .height-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .business-module {
+                padding: 12px;
+                max-height: 70vh;
+                min-width: unset;
+                max-width: unset;
+                width: 100%;
+            }
+            
+            .business-module.wide-module {
+                min-width: unset;
+                max-width: unset;
+                width: 100%;
+            }
+            
+            /* 小屏幕上基础公共服务也使用两列布局 */
+            .wide-module .function-items {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            
+            /* 小屏幕上筛选器垂直排列 */
+            .filter-row {
+                flex-direction: column;
+                gap: 15px;
+                width: 100%;
+            }
+            
+            .filter-row .control-group {
+                width: 100%;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+            
+            .function-items {
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                gap: 6px;
+            }
+            
+            .module-header {
+                font-size: 14px;
+                padding: 10px 12px;
+            }
+            
+            .function-module-header {
+                font-size: 13px;
+            }
+            
+            .function-item {
+                font-size: 10px;
+                padding: 6px 8px;
+                min-height: 28px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .treemap-container {
+                padding: 10px;
+                gap: 10px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .header p {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>一体化机柜产品功能动态面板</h1>
+            <p>智能高度分组布局 - 相近高度卡片排成一行，减少间距浪费 (141个功能项)</p>
+        </div>
+        
+        <div class="controls">
+            <div class="filter-row">
+                <div class="control-group">
+                    <label>功能类型筛选</label>
+                    <select id="functionTypeFilter" onchange="applyFilters()">
+                        <option value="">显示全部功能类型</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>KANO类型筛选</label>
+                    <select id="kanoTypeFilter" onchange="applyFilters()">
+                        <option value="">显示全部KANO类型</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label>视图控制</label>
+                <button onclick="toggleAllModules()">展开/收缩全部</button>
+            </div>
+        </div>
+        
+        <div class="function-panel">
+            <div id="treemapContainer" class="treemap-container">
+                <!-- 动态生成的功能面板 -->
+            </div>
+        </div>
+        
+        <div class="stats-panel">
+            <h3>数据统计</h3>
+            <div class="stats-grid" id="statsGrid">
+                <!-- 统计数据将动态生成 -->
+            </div>
+        </div>
+        
+        <div class="legend">
+            <h3>功能类型图例</h3>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <div class="legend-color type-动环面客"></div>
+                    <span>动环面客</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color type-售后维护"></div>
+                    <span>售后维护</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color type-用户配置"></div>
+                    <span>用户配置</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color type-工程施工"></div>
+                    <span>工程施工</span>
+                </div>
+            </div>
+            
+            <h3 style="margin-top: 20px;">KANO类型图例（边框颜色）</h3>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #c0392b;"></div>
+                    <span>基本型需求</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #27ae60;"></div>
+                    <span>期望型需求</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #3498db;"></div>
+                    <span>魅力型需求</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #95a5a6;"></div>
+                    <span>无差异需求</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #8e44ad;"></div>
+                    <span>反向型需求</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    
+    <script>
+        // 全局变量
+        let allData = [];
+        let filteredData = [];
+        let treeData = {};
+        let isExpanded = true;
+        let functionStates = {}; // 记录功能项的开启/关闭状态
+        let fixedModuleGroups = []; // 固定的模块分组，不因展开/收缩而改变
+        
+        // 功能类型配色
+        const functionTypeColors = {
+            '动环面客': '#3498db',
+            '售后维护': '#e74c3c', 
+            '用户配置': '#f39c12',
+            '工程施工': '#27ae60'
+        };
+        
+        // KANO类型配色
+        const kanoTypeColors = {
+            '基本型需求': '#c0392b',
+            '期望型需求': '#27ae60',
+            '魅力型需求': '#3498db',
+            '无差异需求': '#95a5a6',
+            '反向型需求': '#8e44ad'
+        };
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadFunctionStates(); // 加载功能状态
+            loadDefaultData();
+        });
+
+        // 窗口大小变化时重新布局
+        let resizeTimeout;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(function() {
+                if (Object.keys(treeData).length > 0) {
+                    console.log('窗口大小变化，重新布局...');
+                    resetFixedGroups(); // 窗口大小变化时重置分组
+                    renderTreemap();
+                }
+            }, 300);
+        });
+
+        // 切换功能项状态
+        function toggleFunctionItem(item) {
+            const functionKey = `${item.业务模块}-${item.功能模块}-${item.功能项}`;
+            
+            // 切换状态（默认为启用true）
+            functionStates[functionKey] = !getFunctionState(functionKey);
+            
+            // 保存状态到localStorage
+            saveFunctionStates();
+            
+            // 只更新当前功能项的样式，不重新渲染整个面板
+            updateFunctionItemDisplay(item, functionKey);
+            
+            console.log(`功能项 "${item.功能项}" ${functionStates[functionKey] ? '已启用' : '已禁用'}`);
+        }
+
+        // 更新单个功能项的显示状态
+        function updateFunctionItemDisplay(item, functionKey) {
+            const isEnabled = getFunctionState(functionKey);
+            
+            // 查找对应的DOM元素
+            const modules = document.querySelectorAll('.business-module');
+            modules.forEach(moduleDiv => {
+                const moduleHeader = moduleDiv.querySelector('.module-header').textContent;
+                if (moduleHeader.includes(item.业务模块)) {
+                    const functionItems = moduleDiv.querySelectorAll('.function-item');
+                    functionItems.forEach(itemDiv => {
+                        if (itemDiv.textContent.trim() === item.功能项) {
+                            // 更新样式
+                            if (isEnabled) {
+                                itemDiv.classList.remove('disabled');
+                                itemDiv.style.backgroundColor = functionTypeColors[item.功能类型] || '#95a5a6';
+                                itemDiv.style.color = 'white';
+                            } else {
+                                itemDiv.classList.add('disabled');
+                            }
+                            
+                            // 更新提示信息
+                            itemDiv.title = `${item.功能项}\n类型: ${item.功能类型}\nKANO: ${item.KANO类型}\n状态: ${isEnabled ? '启用' : '禁用'}\n点击切换状态`;
+                        }
+                    });
+                }
+            });
+        }
+
+        // 获取功能项状态
+        function getFunctionState(functionKey) {
+            return functionStates[functionKey] !== false; // 默认为启用
+        }
+
+        // 保存功能状态到localStorage
+        function saveFunctionStates() {
+            try {
+                localStorage.setItem('functionStates', JSON.stringify(functionStates));
+            } catch (e) {
+                console.warn('无法保存功能状态到localStorage:', e);
+            }
+        }
+
+        // 从localStorage加载功能状态
+        function loadFunctionStates() {
+            try {
+                const saved = localStorage.getItem('functionStates');
+                if (saved) {
+                    functionStates = JSON.parse(saved);
+                }
+            } catch (e) {
+                console.warn('无法从localStorage加载功能状态:', e);
+                functionStates = {};
+            }
+        }
+        
+        // 加载默认数据
+        function loadDefaultData() {
+            console.log('开始加载最新云基功能数据...');
+            
+            // 使用云基功能分析的最新数据
+            const completeData = `"业务模块","功能模块","功能项","功能类型","KANO类型","功能点","X","Y","理由"
+"基础公共服务","权限管理","角色管理","用户配置","魅力型需求","角色管理","0.579","0.892","default"
+"基础公共服务","权限管理","部门/用户组管理","用户配置","魅力型需求","部门/用户组管理","0.486","0.776","default"
+"基础公共服务","权限管理","用户管理","用户配置","基本型需求","用户管理","0.796","0.100","default"
+"基础公共服务","日志管理","操作日志","售后维护","基本型需求","操作日志","0.779","0.178","default"
+"基础公共服务","日志管理","联动日志","售后维护","基本型需求","联动日志","0.853","0.106","default"
+"基础公共服务","系统工具","系统工具","售后维护","期望型需求","系统工具","0.708","0.772","default"
+"基础公共服务","系统配置","监控配置","售后维护","基本型需求","监控配置","0.731","0.181","default"
+"基础公共服务","系统配置","在线配置","售后维护","基本型需求","在线配置","0.887","0.113","default"
+"基础公共服务","系统配置","集中批量配置","售后维护","基本型需求","集中批量配置","0.733","0.221","default"
+"基础公共服务","系统维护","升级","售后维护","基本型需求","升级","0.815","0.270","default"
+"基础公共服务","系统维护","备份和还原","售后维护","基本型需求","备份和还原","0.722","0.271","default"
+"基础公共服务","系统维护","系统运行记录","售后维护","基本型需求","系统运行记录","0.794","0.192","default"
+"基础公共服务","系统维护","时间同步","售后维护","基本型需求","时间同步","0.813","0.287","default"
+"基础公共服务","系统维护","设备调测","售后维护","期望型需求","设备调测","0.764","0.717","default"
+"基础公共服务","系统维护","看门狗","售后维护","期望型需求","看门狗","0.673","0.766","default"
+"基础公共服务","系统维护","远程维护","售后维护","期望型需求","远程维护","0.749","0.794","default"
+"基础公共服务","系统自诊断","系统自恢复","售后维护","基本型需求","系统自恢复","0.831","0.213","default"
+"基础公共服务","安全管理","账户密码安全","动环面客","基本型需求","账户密码安全","0.858","0.124","default"
+"基础公共服务","安全管理","系统安全","动环面客","基本型需求","系统安全","0.768","0.287","default"
+"基础公共服务","系统自监控","系统自监控","动环面客","基本型需求","系统自监控","0.804","0.172","default"
+"基础公共服务","多语言","多语言","动环面客","魅力型需求","多语言","0.552","0.766","default"
+"基础公共服务","系统换肤","登录页配置","用户配置","魅力型需求","登录页配置","0.437","0.805","default"
+"基础公共服务","系统换肤","系统换肤","用户配置","魅力型需求","系统换肤","0.456","0.847","default"
+"数据管理","数据采集","实时数据采集","动环面客","基本型需求","实时数据采集","0.797","0.286","default"
+"数据管理","数据采集","实时曲线","动环面客","期望型需求","实时曲线","0.605","0.720","default"
+"数据管理","数据采集","设备接入","工程施工","基本型需求","设备接入","0.821","0.152","default"
+"数据管理","数据处理","计算和策略运算","工程施工","基本型需求","计算和策略运算","0.720","0.131","default"
+"数据管理","数据处理","历史曲线","动环面客","魅力型需求","历史曲线","0.578","0.893","default"
+"数据管理","数据处理","数据存储策略","用户配置","基本型需求","数据存储策略","0.850","0.228","default"
+"数据管理","数据处理","数据过时清理","售后维护","基本型需求","数据过时清理","0.883","0.149","default"
+"数据管理","数据传输","数据缓存/续传","动环面客","基本型需求","数据缓存/续传","0.793","0.133","default"
+"数据管理","数据传输","网络方式","动环面客","基本型需求","网络方式","0.726","0.227","default"
+"数据管理","数据传输","主动上报","动环面客","基本型需求","主动上报","0.870","0.241","default"
+"数据管理","数据发布","标准北向接口","工程施工","基本型需求","标准北向接口","0.882","0.154","default"
+"数据管理","数据发布","北向接口定制","工程施工","魅力型需求","北向接口定制","0.516","0.880","default"
+"联动控制","控制策略","控制策略自定义","工程施工","基本型需求","控制策略自定义","0.719","0.181","default"
+"联动控制","控制策略","定时控制","工程施工","基本型需求","定时控制","0.866","0.294","default"
+"联动控制","远程控制","远程控制","售后维护","基本型需求","远程控制","0.726","0.175","default"
+"告警管理","告警生命周期","告警过滤","动环面客","期望型需求","告警过滤","0.719","0.751","default"
+"告警管理","告警生命周期","告警生成和恢复","动环面客","基本型需求","告警生成和恢复","0.749","0.226","default"
+"告警管理","告警生命周期","告警分级","动环面客","期望型需求","告警分级","0.742","0.728","default"
+"告警管理","告警生命周期","告警配置","用户配置","期望型需求","告警配置","0.723","0.717","default"
+"告警管理","告警生命周期","告警查询","动环面客","期望型需求","告警查询","0.673","0.632","default"
+"告警管理","告警生命周期","告警屏蔽","用户配置","期望型需求","告警屏蔽","0.723","0.719","default"
+"告警管理","告警生命周期","告警受理","动环面客","基本型需求","告警受理","0.893","0.201","default"
+"告警管理","告警生命周期","告警确认","动环面客","基本型需求","告警确认","0.728","0.264","default"
+"告警管理","告警告知策略","告警/事件发送策略","用户配置","魅力型需求","告警/事件发送策略","0.430","0.757","default"
+"告警管理","告警告知策略","APP查询","动环面客","魅力型需求","APP查询","0.450","0.880","default"
+"告警管理","告警告知策略","定时报平安","动环面客","魅力型需求","定时报平安","0.532","0.822","default"
+"告警管理","告警告知策略","信息模板","用户配置","魅力型需求","信息模板","0.478","0.702","default"
+"告警管理","告警告知策略","风暴预警","动环面客","魅力型需求","风暴预警","0.421","0.706","default"
+"告警管理","告警告知方式","短信告警","动环面客","基本型需求","短信告警","0.881","0.242","default"
+"告警管理","告警告知方式","电话语音告警","动环面客","基本型需求","电话语音告警","0.840","0.256","default"
+"告警管理","告警告知方式","邮件告警","动环面客","基本型需求","邮件告警","0.732","0.252","default"
+"告警管理","告警告知方式","界面告警","动环面客","基本型需求","界面告警","0.794","0.290","default"
+"告警管理","告警告知方式","声光告警","动环面客","基本型需求","声光告警","0.850","0.170","default"
+"告警管理","告警告知方式","桌面语音告警","动环面客","基本型需求","桌面语音告警","0.815","0.177","default"
+"告警管理","告警告知方式","微信告警","动环面客","基本型需求","微信告警","0.728","0.208","default"
+"告警管理","告警告知方式","popo告警","动环面客","基本型需求","popo告警","0.716","0.295","default"
+"告警管理","告警告知记录","告警告知记录跟踪","动环面客","期望型需求","告警告知记录跟踪","0.701","0.705","default"
+"移动APP","数据管理","数据展示","动环面客","魅力型需求","数据展示","0.585","0.900","default"
+"移动APP","数据管理","实时数据曲线","动环面客","魅力型需求","实时数据曲线","0.492","0.791","default"
+"移动APP","数据管理","历史数据曲线","动环面客","魅力型需求","历史数据曲线","0.491","0.700","default"
+"移动APP","设备控制","远程控制设备","动环面客","魅力型需求","远程控制设备","0.494","0.847","default"
+"移动APP","告警/事件告知","接收实时告警推送","动环面客","魅力型需求","接收实时告警推送","0.464","0.774","default"
+"移动APP","告警/事件告知","历史告警","动环面客","魅力型需求","历史告警","0.593","0.809","default"
+"移动APP","告警/事件告知","告警处理","动环面客","魅力型需求","告警处理","0.505","0.740","default"
+"移动APP","告警/事件告知","查看告警设备详情","动环面客","魅力型需求","查看告警设备详情","0.481","0.702","default"
+"移动APP","设备查询","设备查询","动环面客","魅力型需求","设备查询","0.562","0.755","default"
+"移动APP","设备查询","关注设备","动环面客","魅力型需求","关注设备","0.542","0.778","default"
+"报表报告","查询报表","事件查询","动环面客","基本型需求","事件查询","0.715","0.124","default"
+"报表报告","查询报表","事件生命周期查询","动环面客","基本型需求","事件生命周期查询","0.767","0.102","default"
+"报表报告","查询报表","数据查询","动环面客","基本型需求","数据查询","0.717","0.156","default"
+"工程组态","工程组态","空间设备管理","工程施工","基本型需求","空间设备管理","0.716","0.180","default"
+"工程组态","工程组态","连接管理","工程施工","基本型需求","连接管理","0.846","0.214","default"
+"工程组态","工程组态","配置项管理","工程施工","基本型需求","配置项管理","0.876","0.166","default"
+"工程组态","工程组态","模板管理","工程施工","基本型需求","模板管理","0.874","0.151","default"
+"工程组态","工程组态","页面组态","工程施工","基本型需求","页面组态","0.886","0.152","default"
+"工程组态","工程组态","设备组态","工程施工","基本型需求","设备组态","0.813","0.187","default"
+"工程组态","工程组态","图元管理","工程施工","基本型需求","图元管理","0.884","0.269","default"
+"工程组态","工程组态","历史曲线图元","工程施工","基本型需求","历史曲线图元","0.747","0.106","default"
+"工程组态","工程组态","报警图元","工程施工","基本型需求","报警图元","0.704","0.201","default"
+"工程组态","工程组态","电力组态","工程施工","基本型需求","电力组态","0.847","0.185","default"
+"工程组态","工程组态","摄像头图元","工程施工","基本型需求","摄像头图元","0.881","0.129","default"
+"界面展示","组态页面展示","浏览器","动环面客","基本型需求","浏览器","0.711","0.159","default"
+"界面展示","组态页面展示","搜索查询","动环面客","基本型需求","搜索查询","0.718","0.213","default"
+"界面展示","组态页面展示","分层分级页面展示","动环面客","基本型需求","分层分级页面展示","0.781","0.258","default"
+"界面展示","组态页面展示","设备页面标准化展示","动环面客","基本型需求","设备页面标准化展示","0.815","0.267","default"
+"界面展示","组态页面展示","页面导航","动环面客","基本型需求","页面导航","0.703","0.246","default"
+"界面展示","组态页面展示","设备树","动环面客","基本型需求","设备树","0.779","0.238","default"
+"界面展示","组态页面展示","屏幕和分辨率适配","动环面客","基本型需求","屏幕和分辨率适配","0.753","0.264","default"
+"界面展示","组态页面展示","矢量缩放","动环面客","魅力型需求","矢量缩放","0.442","0.737","default"
+"界面展示","组态页面展示","页面风格","动环面客","魅力型需求","页面风格","0.592","0.886","default"
+"界面展示","告警展示","告警统计展示","动环面客","基本型需求","告警统计展示","0.750","0.247","default"
+"界面展示","告警展示","告警事件栏","动环面客","基本型需求","告警事件栏","0.750","0.272","default"
+"界面展示","告警展示","告警360","动环面客","期望型需求","告警360","0.748","0.672","default"
+"界面展示","告警展示","列设置","用户配置","魅力型需求","列设置","0.468","0.848","default"
+"界面展示","大屏展示","大屏展示","动环面客","期望型需求","大屏展示","0.739","0.629","default"
+"界面展示","大屏展示","界面轮播","动环面客","期望型需求","界面轮播","0.769","0.632","default"
+"消息中心","通知公告","公告总览","动环面客","基本型需求","公告总览","0.757","0.253","default"
+"消息中心","通知公告","创建公告","动环面客","基本型需求","创建公告","0.890","0.101","default"
+"消息中心","通知公告","草稿箱","动环面客","基本型需求","草稿箱","0.816","0.244","default"
+"消息中心","通知公告","已发公告","动环面客","基本型需求","已发公告","0.779","0.230","default"
+"消息中心","通知公告","全部公告","动环面客","基本型需求","全部公告","0.819","0.192","default"
+"消息中心","通知公告","公告配置","动环面客","基本型需求","公告配置","0.777","0.295","default"
+"消息中心","系统消息","消息总览","动环面客","基本型需求","消息总览","0.896","0.118","default"
+"消息中心","系统消息","消息配置","动环面客","基本型需求","消息配置","0.828","0.248","default"
+"资产信息","资产总览","资产信息","动环面客","魅力型需求","资产信息","0.471","0.805","default"
+"资产信息","资产总览","新增资产","动环面客","魅力型需求","新增资产","0.520","0.882","default"
+"资产信息","资产总览","下载模板","动环面客","魅力型需求","下载模板","0.533","0.710","default"
+"资产信息","资产总览","资产导出","动环面客","魅力型需求","资产导出","0.544","0.841","default"
+"资产信息","资产总览","上架导入","动环面客","魅力型需求","上架导入","0.439","0.747","default"
+"资产信息","资产总览","批量更新","动环面客","魅力型需求","批量更新","0.439","0.797","default"
+"资产信息","资产总览","批量绑定","动环面客","魅力型需求","批量绑定","0.408","0.779","default"
+"资产信息","资产总览","刷新","动环面客","魅力型需求","刷新","0.444","0.816","default"
+"资产信息","资产总览","定位","动环面客","魅力型需求","定位","0.456","0.812","default"
+"资产信息","资产总览","操作","动环面客","魅力型需求","操作","0.584","0.866","default"
+"资产信息","配置","资产检测设备","用户配置","魅力型需求","资产检测设备","0.419","0.805","default"
+"资产信息","配置","自动上下架配置","用户配置","魅力型需求","自动上下架配置","0.556","0.863","default"
+"资产信息","配置","自动绑定配置","用户配置","魅力型需求","自动绑定配置","0.522","0.734","default"
+"资产信息","配置","U位指示灯状态配置","用户配置","魅力型需求","U位指示灯状态配置","0.544","0.704","default"
+"资产信息","配置","资产条告警级别配置","用户配置","魅力型需求","资产条告警级别配置","0.479","0.754","default"
+"抓拍记录","抓拍记录","抓拍记录","动环面客","魅力型需求","抓拍记录","0.575","0.846","default"
+"云平板","信息展示","总览","动环面客","基本型需求","总览","0.772","0.175","default"
+"云平板","信息展示","配电","动环面客","基本型需求","配电","0.800","0.196","default"
+"云平板","信息展示","环境","动环面客","基本型需求","环境","0.786","0.111","default"
+"云平板","信息展示","防护","动环面客","基本型需求","防护","0.838","0.171","default"
+"云平板","信息展示","IT设施","动环面客","基本型需求","IT设施","0.818","0.182","default"
+"云平板","信息展示","资产信息","动环面客","基本型需求","资产信息","0.767","0.140","default"
+"云平板","个人设置","信息详情","用户配置","基本型需求","信息详情","0.887","0.270","default"
+"云平板","个人设置","刷脸设置","用户配置","基本型需求","刷脸设置","0.710","0.299","default"
+"云平板","个人设置","修改密码","用户配置","基本型需求","修改密码","0.838","0.173","default"
+"云平板","个人设置","问题反馈","用户配置","基本型需求","问题反馈","0.710","0.162","default"
+"云平板","个人设置","告警配置","用户配置","基本型需求","告警配置","0.897","0.258","default"
+"云平板","个人设置","当前版本","用户配置","基本型需求","当前版本","0.880","0.246","default"
+"云平板","个人设置","注销登录","用户配置","基本型需求","注销登录","0.799","0.229","default"
+"云平板","告警展示","告警统计展示","动环面客","基本型需求","告警统计展示","0.794","0.239","default"
+"云平板","人脸识别","人脸识别","动环面客","魅力型需求","人脸识别","0.592","0.729","default"
+"门禁","门禁系统","开门控制","动环面客","魅力型需求","开门控制","0.484","0.764","default"
+"门禁","门禁系统","用户管理","动环面客","魅力型需求","用户管理","0.546","0.786","default"
+"门禁","门禁系统","门禁记录","动环面客","魅力型需求","门禁记录","0.498","0.789","default"`;
+            
+            parseCSVData(completeData);
+        }
+        
+        // 解析CSV数据
+        function parseCSVData(csvText) {
+            Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    console.log('解析的原始数据条数:', results.data.length);
+                    
+                    allData = results.data
+                        .filter(row => row.功能点 && row.功能点.trim() !== '')
+                        .map(row => ({
+                            业务模块: (row.业务模块 || '').trim(),
+                            功能模块: (row.功能模块 || '').trim(),
+                            功能项: (row.功能项 || '').trim(),
+                            功能类型: (row.功能类型 || '用户配置').trim(),
+                            KANO类型: (row.KANO类型 || '期望型需求').trim(),
+                            功能点: row.功能点,
+                            X: parseFloat(row.X) || 0,
+                            Y: parseFloat(row.Y) || 0,
+                            理由: (row.理由 || '').trim()
+                        }));
+                    
+                    console.log(`成功加载 ${allData.length} 条数据`);
+                    filteredData = [...allData];
+                    
+                    buildTreeData();
+                    populateFilters();
+                    renderTreemap();
+                    updateStats();
+                }
+            });
+        }
+        
+        // 构建树形数据结构
+        function buildTreeData() {
+            treeData = {};
+            
+            filteredData.forEach(item => {
+                const businessModule = item.业务模块;
+                const functionModule = item.功能模块;
+                const functionItem = item.功能项;
+                
+                if (!treeData[businessModule]) {
+                    treeData[businessModule] = {};
+                }
+                
+                if (!treeData[businessModule][functionModule]) {
+                    treeData[businessModule][functionModule] = [];
+                }
+                
+                treeData[businessModule][functionModule].push(item);
+            });
+        }
+        
+        // 填充筛选器选项
+        function populateFilters() {
+            const functionTypes = [...new Set(allData.map(d => d.功能类型))].filter(Boolean);
+            const kanoTypes = [...new Set(allData.map(d => d.KANO类型))].filter(Boolean);
+            
+            populateSelect('functionTypeFilter', functionTypes);
+            populateSelect('kanoTypeFilter', kanoTypes);
+        }
+        
+        // 填充下拉选择框
+        function populateSelect(selectId, options) {
+            const select = document.getElementById(selectId);
+            // 保留第一个"全部"选项
+            while (select.children.length > 1) {
+                select.removeChild(select.lastChild);
+            }
+            
+            options.forEach(option => {
+                const optionElement = document.createElement('option');
+                optionElement.value = option;
+                optionElement.textContent = option;
+                select.appendChild(optionElement);
+            });
+        }
+        
+        // 应用筛选
+        function applyFilters() {
+            const selectedFunctionType = document.getElementById('functionTypeFilter').value;
+            const selectedKanoType = document.getElementById('kanoTypeFilter').value;
+            
+            filteredData = allData.filter(item => {
+                const functionMatch = !selectedFunctionType || item.功能类型 === selectedFunctionType;
+                const kanoMatch = !selectedKanoType || item.KANO类型 === selectedKanoType;
+                
+                return functionMatch && kanoMatch;
+            });
+            
+            buildTreeData();
+            resetFixedGroups(); // 筛选时重置分组
+            renderTreemap();
+            updateStats();
+        }
+        
+        
+        // 计算模块大小（不再需要，使用CSS Grid自动布局）
+        function calculateModuleSize(businessModule) {
+            // 保留此函数以防其他地方调用，但不再计算具体尺寸
+            return 'auto';
+        }
+        
+        // 计算模块高度（估算）
+        function calculateModuleHeight(businessModule) {
+            const totalFunctionModules = Object.keys(treeData[businessModule]).length;
+            const totalItems = Object.values(treeData[businessModule])
+                .reduce((sum, items) => sum + items.length, 0);
+            
+            // 基础高度：模块头部 + 内边距
+            let estimatedHeight = 80;
+            
+            // 每个功能模块的估算高度
+            Object.keys(treeData[businessModule]).forEach(functionModule => {
+                const itemCount = treeData[businessModule][functionModule].length;
+                // 功能模块头部 + 功能项目（每行最多4个，向上取整）
+                const rows = Math.ceil(itemCount / 4);
+                estimatedHeight += 50 + (rows * 40); // 头部50px + 每行40px
+            });
+            
+            return Math.min(estimatedHeight, 600); // 限制最大高度
+        }
+
+        // 获取实际容器宽度
+        function getContainerWidth() {
+            const container = document.getElementById('treemapContainer');
+            if (container) {
+                const computedStyle = window.getComputedStyle(container);
+                const containerWidth = container.clientWidth - 
+                    parseFloat(computedStyle.paddingLeft) - 
+                    parseFloat(computedStyle.paddingRight);
+                return Math.max(containerWidth, 800); // 最小宽度800px
+            }
+            return 1200; // 默认值
+        }
+
+        // 获取模块宽度
+        function getModuleWidth(moduleName) {
+            if (moduleName === '基础公共服务') {
+                return { min: 420, max: 600, weight: 2 }; // 宽模块
+            }
+            return { min: 280, max: 400, weight: 1 }; // 普通模块
+        }
+
+        // 获取所有分组中的模块列表
+        function getAllModulesFromGroups() {
+            if (fixedModuleGroups.length === 0) return [];
+            return fixedModuleGroups.flat();
+        }
+
+        // 数组比较函数
+        function arraysEqual(a, b) {
+            if (a.length !== b.length) return false;
+            for (let i = 0; i < a.length; i++) {
+                if (a[i] !== b[i]) return false;
+            }
+            return true;
+        }
+
+        // 重置固定分组（用于筛选时）
+        function resetFixedGroups() {
+            fixedModuleGroups = [];
+        }
+
+        // 按高度分组模块（考虑模块宽度）
+        function groupModulesByHeight(modules) {
+            // 计算每个模块的高度和宽度权重
+            const modulesWithHeight = modules.map(module => ({
+                name: module,
+                height: calculateModuleHeight(module),
+                width: getModuleWidth(module)
+            }));
+            
+            // 按高度排序
+            modulesWithHeight.sort((a, b) => a.height - b.height);
+            
+            const groups = [];
+            const containerWidth = getContainerWidth();
+            const gap = 15; // 模块间距
+            
+            console.log(`容器宽度: ${containerWidth}px`);
+            
+            let currentGroup = [];
+            let currentGroupMaxHeight = 0;
+            let currentGroupWidth = 0;
+            
+            modulesWithHeight.forEach((module, index) => {
+                // 计算添加当前模块后的宽度
+                const moduleMinWidth = module.width.min;
+                const newGroupWidth = currentGroupWidth + (currentGroup.length > 0 ? gap : 0) + moduleMinWidth;
+                
+                // 检查是否应该开始新组
+                const shouldStartNewGroup = 
+                    newGroupWidth > containerWidth || // 宽度超出容器
+                    (currentGroup.length >= 2 && 
+                     Math.abs(module.height - currentGroupMaxHeight) > 120) || // 高度差异过大
+                    (currentGroup.length > 0 && 
+                     Math.abs(module.height - currentGroupMaxHeight) > 200); // 极大高度差异
+                
+                if (shouldStartNewGroup && currentGroup.length > 0) {
+                    groups.push([...currentGroup]);
+                    currentGroup = [];
+                    currentGroupMaxHeight = 0;
+                    currentGroupWidth = 0;
+                }
+                
+                currentGroup.push(module.name);
+                currentGroupMaxHeight = Math.max(currentGroupMaxHeight, module.height);
+                currentGroupWidth += (currentGroup.length > 1 ? gap : 0) + moduleMinWidth;
+                
+                // 智能分组：如果当前组有足够多的相似高度模块，考虑结束这组
+                if (currentGroup.length >= 2) {
+                    const heights = currentGroup.map(name => 
+                        modulesWithHeight.find(m => m.name === name).height
+                    );
+                    const maxHeight = Math.max(...heights);
+                    const minHeight = Math.min(...heights);
+                    
+                    // 如果高度很相似，且还有剩余模块，考虑是否提前结束
+                    if (maxHeight - minHeight <= 80 && index < modulesWithHeight.length - 1) {
+                        const nextModule = modulesWithHeight[index + 1];
+                        const nextModuleWidth = nextModule.width.min;
+                        const nextGroupWidth = currentGroupWidth + gap + nextModuleWidth;
+                        
+                        // 如果下一个模块高度差异很大或加入后超出宽度，结束当前组
+                        if (Math.abs(nextModule.height - currentGroupMaxHeight) > 150 || 
+                            nextGroupWidth > containerWidth) {
+                            groups.push([...currentGroup]);
+                            currentGroup = [];
+                            currentGroupMaxHeight = 0;
+                            currentGroupWidth = 0;
+                        }
+                    }
+                }
+            });
+            
+            // 添加最后一组
+            if (currentGroup.length > 0) {
+                groups.push(currentGroup);
+            }
+            
+            console.log('分组结果:', groups);
+            return groups;
+        }
+
+        // 渲染树状图
+        function renderTreemap() {
+            const container = document.getElementById('treemapContainer');
+            container.innerHTML = '';
+            
+            const businessModules = Object.keys(treeData);
+            
+            // 如果还没有固定分组，或者数据发生变化，重新计算分组
+            const currentModules = getAllModulesFromGroups();
+            const needRecalculate = fixedModuleGroups.length === 0 || 
+                                   !arraysEqual(businessModules.sort(), currentModules.sort());
+            
+            if (needRecalculate) {
+                // 按高度分组模块（基于展开状态计算）
+                fixedModuleGroups = groupModulesByHeight(businessModules);
+                console.log('重新计算模块分组:', fixedModuleGroups);
+            } else {
+                console.log('使用固定分组，保持排布不变');
+            }
+            
+            // 使用固定的分组
+            const moduleGroups = fixedModuleGroups;
+            
+            moduleGroups.forEach((group, groupIndex) => {
+                // 创建高度组容器
+                const groupDiv = document.createElement('div');
+                let groupClass = 'height-group';
+                
+                // 检查是否为最后一组，并且卡片数量较少
+                const isLastGroup = groupIndex === moduleGroups.length - 1;
+                const containerWidth = getContainerWidth();
+                const gap = 15;
+                
+                // 为最后一行添加特殊样式类
+                if (isLastGroup) {
+                    groupClass += ' last-row';
+                    if (group.length === 1) {
+                        groupClass += ' single-item';
+                    } else if (group.length <= 3) {
+                        groupClass += ' few-items';
+                    }
+                }
+                
+                groupDiv.className = groupClass;
+                
+                group.forEach((businessModule, moduleIndex) => {
+                    const moduleDiv = document.createElement('div');
+                    let moduleClass = `business-module type-${getModulePrimaryType(businessModule)}`;
+                    
+                    // 为基础公共服务模块添加宽模块类
+                    if (businessModule === '基础公共服务') {
+                        moduleClass += ' wide-module';
+                    }
+                    
+                    // 如果是最后一组且卡片数量少，优化宽度分布
+                    if (isLastGroup && group.length <= 3) {
+                        const moduleWidth = getModuleWidth(businessModule);
+                        
+                        // 计算可用的额外宽度
+                        const totalMinWidth = group.reduce((sum, name) => {
+                            return sum + getModuleWidth(name).min;
+                        }, 0);
+                        const totalGaps = (group.length - 1) * gap;
+                        const availableWidth = containerWidth - totalMinWidth - totalGaps;
+                        
+                        if (availableWidth > 0 && group.length > 1) {
+                            // 均匀分配额外宽度，但有合理限制
+                            const extraWidthPerModule = Math.floor(availableWidth / group.length);
+                            let newMaxWidth = moduleWidth.max + extraWidthPerModule;
+                            
+                            // 为基础公共服务模块设置更大的扩展限制
+                            const maxExpansion = businessModule === '基础公共服务' ? 300 : 200;
+                            newMaxWidth = Math.min(newMaxWidth, moduleWidth.max + maxExpansion);
+                            
+                            // 设置最小宽度确保有意义的扩展
+                            if (newMaxWidth > moduleWidth.max + 50) {
+                                moduleDiv.style.maxWidth = `${newMaxWidth}px`;
+                                moduleDiv.style.minWidth = `${moduleWidth.min}px`;
+                            }
+                        }
+                    }
+                    
+                    moduleDiv.className = moduleClass;
+                    
+                    const totalItems = Object.values(treeData[businessModule])
+                        .reduce((sum, items) => sum + items.length, 0);
+                    
+                    // 模块头部
+                    const headerDiv = document.createElement('div');
+                    headerDiv.className = 'module-header';
+                    headerDiv.innerHTML = `
+                        ${businessModule}
+                        <div class="module-count">${totalItems}</div>
+                    `;
+                    headerDiv.onclick = () => toggleModule(moduleDiv);
+                    
+                    // 功能模块容器
+                    const functionsDiv = document.createElement('div');
+                    functionsDiv.className = 'function-modules';
+                    
+                    Object.keys(treeData[businessModule]).forEach(functionModule => {
+                        const functionDiv = document.createElement('div');
+                        functionDiv.className = 'function-module';
+                        
+                        // 功能模块头部
+                        const functionHeader = document.createElement('div');
+                        functionHeader.className = 'function-module-header';
+                        functionHeader.textContent = `${functionModule} (${treeData[businessModule][functionModule].length})`;
+                        
+                        // 功能项目
+                        const itemsDiv = document.createElement('div');
+                        itemsDiv.className = 'function-items';
+                        
+                        treeData[businessModule][functionModule].forEach(item => {
+                            const itemDiv = document.createElement('div');
+                            const functionKey = `${item.业务模块}-${item.功能模块}-${item.功能项}`;
+                            const isEnabled = getFunctionState(functionKey);
+                            
+                            itemDiv.className = `function-item kano-${item.KANO类型}`;
+                            
+                            // 根据状态设置样式
+                            if (isEnabled) {
+                                itemDiv.style.backgroundColor = functionTypeColors[item.功能类型] || '#95a5a6';
+                                itemDiv.style.color = 'white';
+                            } else {
+                                itemDiv.classList.add('disabled');
+                            }
+                            
+                            itemDiv.textContent = item.功能项;
+                            itemDiv.title = `${item.功能项}\n类型: ${item.功能类型}\nKANO: ${item.KANO类型}\n状态: ${isEnabled ? '启用' : '禁用'}\n点击切换状态`;
+                            
+                            // 修改点击事件为切换功能状态
+                            itemDiv.onclick = (e) => {
+                                e.stopPropagation();
+                                toggleFunctionItem(item);
+                            };
+                            
+                            itemsDiv.appendChild(itemDiv);
+                        });
+                        
+                        // 设置KANO类型边框颜色
+                        const primaryKanoType = getPrimaryKanoType(treeData[businessModule][functionModule]);
+                        functionDiv.style.borderLeftColor = kanoTypeColors[primaryKanoType] || '#95a5a6';
+                        
+                        functionDiv.appendChild(functionHeader);
+                        functionDiv.appendChild(itemsDiv);
+                        functionsDiv.appendChild(functionDiv);
+                    });
+                    
+                    moduleDiv.appendChild(headerDiv);
+                    moduleDiv.appendChild(functionsDiv);
+                    groupDiv.appendChild(moduleDiv);
+                });
+                
+                container.appendChild(groupDiv);
+            });
+        }
+        
+        // 获取模块主要功能类型
+        function getModulePrimaryType(businessModule) {
+            const typeCount = {};
+            Object.values(treeData[businessModule]).forEach(items => {
+                items.forEach(item => {
+                    typeCount[item.功能类型] = (typeCount[item.功能类型] || 0) + 1;
+                });
+            });
+            
+            return Object.keys(typeCount).reduce((a, b) => 
+                typeCount[a] > typeCount[b] ? a : b
+            );
+        }
+        
+        // 获取主要KANO类型
+        function getPrimaryKanoType(items) {
+            const kanoCount = {};
+            items.forEach(item => {
+                kanoCount[item.KANO类型] = (kanoCount[item.KANO类型] || 0) + 1;
+            });
+            
+            return Object.keys(kanoCount).reduce((a, b) => 
+                kanoCount[a] > kanoCount[b] ? a : b
+            );
+        }
+        
+        // 切换模块展开/收缩
+        function toggleModule(moduleDiv) {
+            moduleDiv.classList.toggle('collapsed');
+            const functionsDiv = moduleDiv.querySelector('.function-modules');
+            functionsDiv.style.display = moduleDiv.classList.contains('collapsed') ? 'none' : 'flex';
+            
+            // 个别模块切换时不需要重新分组，只是改变显示状态
+            console.log('单个模块切换状态，保持整体排布');
+        }
+        
+        // 切换全部模块
+        function toggleAllModules() {
+            isExpanded = !isExpanded;
+            const modules = document.querySelectorAll('.business-module');
+            modules.forEach(module => {
+                const functionsDiv = module.querySelector('.function-modules');
+                if (isExpanded) {
+                    module.classList.remove('collapsed');
+                    functionsDiv.style.display = 'flex';
+                } else {
+                    module.classList.add('collapsed');
+                    functionsDiv.style.display = 'none';
+                }
+            });
+            
+            console.log(`所有模块已${isExpanded ? '展开' : '收缩'}，保持原有排布`);
+        }
+        
+        
+        // 更新统计信息
+        function updateStats() {
+            const stats = {};
+            const typeStats = {};
+            const kanoStats = {};
+            
+            filteredData.forEach(item => {
+                // 功能类型统计
+                typeStats[item.功能类型] = (typeStats[item.功能类型] || 0) + 1;
+                // KANO类型统计
+                kanoStats[item.KANO类型] = (kanoStats[item.KANO类型] || 0) + 1;
+            });
+            
+            const statsGrid = document.getElementById('statsGrid');
+            statsGrid.innerHTML = '';
+            
+            // 总数统计
+            const totalStat = document.createElement('div');
+            totalStat.className = 'stat-item';
+            totalStat.innerHTML = `
+                <div class="stat-number">${filteredData.length}</div>
+                <div class="stat-label">功能点总数</div>
+            `;
+            statsGrid.appendChild(totalStat);
+            
+            // 业务模块数量
+            const moduleStat = document.createElement('div');
+            moduleStat.className = 'stat-item';
+            moduleStat.innerHTML = `
+                <div class="stat-number">${Object.keys(treeData).length}</div>
+                <div class="stat-label">业务模块数</div>
+            `;
+            statsGrid.appendChild(moduleStat);
+            
+            // 功能类型统计
+            Object.entries(typeStats).forEach(([type, count]) => {
+                const statItem = document.createElement('div');
+                statItem.className = 'stat-item';
+                statItem.innerHTML = `
+                    <div class="stat-number" style="color: ${functionTypeColors[type]}">${count}</div>
+                    <div class="stat-label">${type}</div>
+                `;
+                statsGrid.appendChild(statItem);
+            });
+            
+            // KANO类型统计
+            Object.entries(kanoStats).forEach(([type, count]) => {
+                const statItem = document.createElement('div');
+                statItem.className = 'stat-item';
+                statItem.innerHTML = `
+                    <div class="stat-number" style="color: ${kanoTypeColors[type]}">${count}</div>
+                    <div class="stat-label">${type}</div>
+                `;
+                statsGrid.appendChild(statItem);
+            });
+        }
+        
+    </script>
+</body>
+</html>
