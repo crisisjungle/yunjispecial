@@ -366,6 +366,40 @@
             font-weight: bold;
         }
         
+        /* 开关按钮样式 */
+        .control-group input[type="checkbox"] {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .control-group input[type="checkbox"]:checked {
+            background: #3498db;
+            border-color: #3498db;
+        }
+        
+        .control-group input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .control-group input[type="checkbox"]:hover {
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+        }
+        
         /* 简化弹窗样式 */
         .function-path {
             background: #f8f9fa;
@@ -414,6 +448,15 @@
                 <select id="functionType" onchange="applyFilters()">
                     <option value="">显示全部功能类型</option>
                 </select>
+            </div>
+            <div class="control-group">
+                <label>显示模式</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 14px;">
+                        <input type="checkbox" id="showLabels" onchange="toggleLabels()" style="transform: scale(1.2);">
+                        显示功能名称
+                    </label>
+                </div>
             </div>
             <div class="control-group">
                 <label>筛选操作</label>
@@ -531,6 +574,7 @@
         let allData = [];
         let filteredData = [];
         let chart = null;
+        let showLabels = false; // 控制是否显示功能名称标签
         
         // KANO类型配色
         const kanoColors = {
@@ -897,7 +941,7 @@
         // 防重叠算法 - 适应标准KANO坐标系统
         function adjustOverlappingPoints(data) {
             const adjusted = [...data];
-            const minDistance = 0.04;
+            const minDistance = showLabels ? 0.08 : 0.04; // 显示标签时增加最小距离
             const maxIterations = 50;
             
             for (let iter = 0; iter < maxIterations; iter++) {
@@ -1061,7 +1105,7 @@
             const x = originalX;
             let y;
             const α = 3;
-            const scatter = 0.15; // 散布范围
+            const scatter = showLabels ? 0.25 : 0.15; // 显示标签时增加散布范围
             
             switch(kanoType) {
                 case 'Attractive':
@@ -1104,6 +1148,67 @@
             };
         }
         
+        // 切换标签显示
+        function toggleLabels() {
+            showLabels = document.getElementById('showLabels').checked;
+            updateChart();
+        }
+        
+        // 标签防重叠算法 - 按KANO类型分层排列
+        function adjustLabelPositions(data) {
+            if (!showLabels) return data;
+            
+            const adjusted = [...data];
+            
+            // 按KANO类型分组
+            const kanoGroups = {
+                '魅力型需求': [],
+                '期望型需求': [],
+                '基本型需求': [],
+                '无差异需求': [],
+                '反向型需求': []
+            };
+            
+            adjusted.forEach(item => {
+                const type = item.KANO类型 || '无差异需求';
+                if (kanoGroups[type]) {
+                    kanoGroups[type].push(item);
+                }
+            });
+            
+            // 为每个KANO类型分配不同的Y轴偏移
+            const typeOffsets = {
+                '魅力型需求': 0.15,    // 蓝色往上偏移
+                '期望型需求': 0.05,    // 绿色稍微往上
+                '基本型需求': -0.05,   // 红色稍微往下
+                '无差异需求': -0.15,   // 灰色往下
+                '反向型需求': -0.25    // 紫色最往下
+            };
+            
+            // 处理每个KANO类型组
+            Object.keys(kanoGroups).forEach(kanoType => {
+                const group = kanoGroups[kanoType];
+                if (group.length === 0) return;
+                
+                // 按X坐标排序
+                group.sort((a, b) => a.adjustedX - b.adjustedX);
+                
+                // 应用Y轴偏移
+                const baseOffset = typeOffsets[kanoType] || 0;
+                group.forEach((item, index) => {
+                    // 在基础偏移上添加小的随机偏移，避免完全重叠
+                    const randomOffset = (Math.random() - 0.5) * 0.08;
+                    item.adjustedY = Math.max(-0.95, Math.min(0.95, item.adjustedY + baseOffset + randomOffset));
+                    
+                    // 在X轴上稍微分散
+                    const xOffset = (Math.random() - 0.5) * 0.06;
+                    item.adjustedX = Math.max(0.05, Math.min(0.95, item.adjustedX + xOffset));
+                });
+            });
+            
+            return adjusted;
+        }
+        
         // 更新图表 - 根据KANO类型智能定位数据点
         function updateChart() {
             console.log('=== 开始更新图表 ===');
@@ -1138,36 +1243,86 @@
             console.log('前3个调整后的数据点:', dataWithAdjusted.slice(0, 3));
             
             // 应用防重叠算法
-            const adjustedData = adjustOverlappingPoints(dataWithAdjusted);
+            let adjustedData = adjustOverlappingPoints(dataWithAdjusted);
+            
+            // 如果显示标签，应用标签防重叠算法
+            if (showLabels) {
+                adjustedData = adjustLabelPositions(adjustedData);
+            }
             
             const seriesData = {};
             
             adjustedData.forEach(item => {
                 const kanoType = item.KANO类型 || 'Unknown';
                 if (!seriesData[kanoType]) {
-                    seriesData[kanoType] = {
-                        name: kanoType,
-                        type: 'scatter',
-                        data: [],
-                        symbolSize: 10, // 增大点的大小使其更明显
+                seriesData[kanoType] = {
+                    name: kanoType,
+                    type: 'scatter',
+                    data: [],
+                    symbolSize: showLabels ? 8 : 12, // 显示标签时适当减小点的大小
+                    itemStyle: {
+                        color: kanoColors[kanoType] || '#666666',
+                        opacity: 0.9, // 增加透明度
+                        borderColor: '#fff',
+                        borderWidth: 2
+                    },
+                    emphasis: {
                         itemStyle: {
-                            color: kanoColors[kanoType] || '#666666',
-                            opacity: 0.9, // 增加透明度
-                            borderColor: '#fff',
-                            borderWidth: 2
+                            opacity: 1,
+                            borderColor: '#333',
+                            borderWidth: 3,
+                            shadowBlur: 15,
+                            shadowColor: kanoColors[kanoType] || '#666666'
                         },
-                        emphasis: {
-                            itemStyle: {
-                                opacity: 1,
-                                borderColor: '#333',
-                                borderWidth: 3,
-                                shadowBlur: 15,
-                                shadowColor: kanoColors[kanoType] || '#666666'
-                            },
-                            scale: 1.5
+                        scale: 1.5
+                    },
+                    label: showLabels ? {
+                        show: true,
+                        position: function(params) {
+                            // 智能标签位置，根据KANO类型和Y坐标决定
+                            const item = params.data[2];
+                            const y = params.data[1];
+                            const kanoType = item.KANO类型;
+                            
+                            // 魅力型需求（蓝色）优先显示在上方
+                            if (kanoType === '魅力型需求' || kanoType === 'Attractive') {
+                                return 'top';
+                            }
+                            // 期望型需求（绿色）也倾向于上方
+                            if (kanoType === '期望型需求' || kanoType === 'One-dimensional') {
+                                return y > 0.1 ? 'top' : 'bottom';
+                            }
+                            // 其他类型根据Y坐标决定
+                            return y > 0.2 ? 'top' : 'bottom';
                         },
-                        z: 10
-                    };
+                        formatter: function(params) {
+                            const item = params.data[2]; // 完整数据对象
+                            const name = item.功能项 || '';
+                            // 限制标签长度，避免过长
+                            return name.length > 20 ? name.substring(0, 20) + '...' : name;
+                        },
+                        fontSize: 12,
+                        color: '#2c3e50',
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        borderColor: kanoColors[kanoType] || '#ddd',
+                        borderWidth: 2,
+                        borderRadius: 6,
+                        padding: [4, 8, 4, 8],
+                        distance: 12,
+                        textStyle: {
+                            fontSize: 12,
+                            fontWeight: 'bold',
+                            color: '#2c3e50'
+                        },
+                        shadowBlur: 3,
+                        shadowColor: 'rgba(0, 0, 0, 0.3)',
+                        shadowOffsetX: 1,
+                        shadowOffsetY: 1
+                    } : {
+                        show: false
+                    },
+                    z: 10
+                };
                 }
                 seriesData[kanoType].data.push([item.adjustedX, item.adjustedY, item]);
             });
